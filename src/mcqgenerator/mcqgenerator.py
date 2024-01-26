@@ -1,54 +1,29 @@
-from langchain.llms import OpenAI
-from langchain_openai import ChatOpenAI
+from langchain_community.llms import OpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.chains import SequentialChain
-from langchain.callbacks import get_openai_callback
-from dotenv import load_dotenv
-import PyPDF2
+from langchain_community.callbacks import get_openai_callback
+from langchain_openai import ChatOpenAI
 import os
 import json
 import pandas as pd
 import traceback
+from dotenv import load_dotenv
+import PyPDF2
+
 
 load_dotenv()
 
-KEY= os.getenv("OPENAI_API_KEY")
+key=os.getenv("OPENAI_API_KEY")
+print(key)
 
-llm1=ChatOpenAI(openai_api_key=KEY,model_name="gpt-3.5-turbo", temperature=0.5)
+llm=ChatOpenAI(openai_api_key=key,model_name="gpt-3.5-turbo",temperature=0.7)
 
-RESPONSE_JSON = {
-    "1": {
-        "mcq": "multiple choice question",
-        "options": {
-            "a": "choice here",
-            "b": "choice here",
-            "c": "choice here",
-            "d": "choice here",
-        },
-        "correct": "correct answer",
-    },
-    "2": {
-        "mcq": "multiple choice question",
-        "options": {
-            "a": "choice here",
-            "b": "choice here",
-            "c": "choice here",
-            "d": "choice here",
-        },
-        "correct": "correct answer",
-    },
-    "3": {
-        "mcq": "multiple choice question",
-        "options": {
-            "a": "choice here",
-            "b": "choice here",
-            "c": "choice here",
-            "d": "choice here",
-        },
-        "correct": "correct answer",
-    },
-}
+with open("C:\Users\HP\OneDrive\Dokumen\Python\MCQs Generator\MCQs-Generator\Response.json","r") as f:
+    RESPONSE_JSON=json.load(f)
+
+print(RESPONSE_JSON)
 
 TEMPLATE="""
 Text:{text}
@@ -58,16 +33,17 @@ Make sure the questions are not repeated and check all the questions to be confo
 Make sure to format your response like  RESPONSE_JSON below  and use it as a guide. \
 Ensure to make {number} MCQs
 ### RESPONSE_JSON
-{response_json}
+{RESPONSE_JSON}
 
 """
 
 quiz_generation_prompt = PromptTemplate(
-    input_variables=["text", "number", "subject", "tone", "response_json"],
-    template=TEMPLATE
-    )
+    input_variables=["text", "number", "grade", "tone", "response_json"],
+    template=TEMPLATE)
 
-quiz_chain=LLMChain(llm=llm1,prompt=quiz_generation_prompt,output_key="quiz", verbose=True)
+
+quiz_chain=LLMChain(llm=llm, prompt=quiz_generation_prompt, output_key="quiz", verbose=True)
+
 
 TEMPLATE2="""
 You are an expert english grammarian and writer. Given a Multiple Choice Quiz for {subject} students.\
@@ -79,12 +55,13 @@ Quiz_MCQs:
 
 Check from an expert English Writer of the above quiz:
 """
+quiz_evaluation_prompt=PromptTemplate(input_variables=["subject", "quiz"], template=TEMPLATE2)
 
-quiz_evaluation_prompt=PromptTemplate(input_variables=["subject", "quiz"], template=TEMPLATE)
 
-review_chain=LLMChain(llm=llm1, prompt=quiz_evaluation_prompt, output_key="review", verbose=True)
 
-generate_evaluate_chain=SequentialChain(chains=[quiz_chain, review_chain], input_variables=["text", "number", "subject", "tone", "response_json"],
+review_chain=LLMChain(llm=llm, prompt=quiz_evaluation_prompt, output_key="review", verbose=True)
+
+
+
+generate_evaluate_chain=SequentialChain(chains=[quiz_chain,review_chain],input_variables=["text", "number", "subject", "tone", "response_json"],
                                         output_variables=["quiz", "review"], verbose=True,)
-
-file_path= r"C:\Users\HP\OneDrive\Dokumen\Python\MCQs Generator\MCQs-Generator\data.txt"
